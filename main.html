@@ -1,0 +1,376 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta charset="UTF-8" content="text/html" http-equiv="content-type">
+<link type="text/css" rel="stylesheet" href="style.css" media="screen"/>
+<title>Гонки</title>
+</head>
+<body>
+<script>
+'use strict';
+class Field{
+	constructor(){
+		this._kolWidth=10;
+		this._kolHeight=20;
+	}
+	build(options){
+		const arrayClass=['fieldTop','field','fieldBottom'];
+		let mainDiv=document.createElement('div');
+		document.body.appendChild(mainDiv);
+		mainDiv.classList.add('mainDiv');
+		let createBlock=()=>{ // build the workspace
+			for(let i=0;i<3;i++){
+				const div=document.createElement('div');
+				mainDiv.appendChild(div);
+				div.classList.add(arrayClass[i]);	
+			}
+			return mainDiv.children[1];
+		}
+		this._field=createBlock();
+		let hideBorder=()=>{ // close the upper and lower border
+			const size=mainDiv.children[1].getBoundingClientRect();
+			const divTop=document.createElement('div');
+			const divBottom=document.createElement('div');
+			divTop.style.border=`${mainDiv.children[1].clientTop/2}px solid black`;
+			divTop.style.width=size.width-mainDiv.children[1].clientTop+'px';
+			divTop.style.position='relative';
+			divTop.style.left=size.left+'px';
+			Object.assign(divBottom,divTop);
+			divBottom.style=divTop.style;
+			divBottom.style.top=size.top+size.height-mainDiv.children[1].clientTop*2+'px';
+			divTop.style.top=size.top+'px';
+			document.body.append(...[divTop,divBottom]);
+		}
+		hideBorder();
+	}
+	get size(){
+		return this._field.getBoundingClientRect();
+	}
+	get kolWidth(){
+		return (this.size.width-this._field.clientTop*2)/this._kolWidth;
+	}
+	get kolHeight(){
+		return (this.size.height-this._field.clientTop*2)/this._kolHeight;
+	}
+	get fieldBuf(){
+		let self=this;
+		return ()=>{return self._field? self._field:console.log('no working space');}
+	}
+	gameOver(string){
+		let div=document.createElement('div');
+		div.classList.add('gameOver');
+		let span=document.createElement('span');
+		span.textContent=string;
+		div.appendChild(span);
+		this._field.appendChild(div);
+	}
+	timer(){
+		let span=document.createElement('span');
+		let time={m:0,s:0};
+		let self=this;
+		this._field.previousElementSibling.appendChild(span);
+		setTimeout(function timer(){
+			time.s++;
+			if(time.s>59){
+				time.s=0;
+				time.m++;
+			}
+			span.textContent=`${String(time.m).length==1?'0'+time.m:time.m}:${String(time.s).length==1?'0'+time.s:time.s}`;
+			self.timeoutID=setTimeout(timer,1000);
+		},1000);
+	}
+	static loadImage(classes){
+		let url=Object.keys(classes);
+		let arrayUrl=url;
+		function promise(url){
+			return new Promise(function(resolve,reject){
+				let imgWall = new Image();
+			imgWall.onerror=()=>{
+				let arrayClass=[];arrayUrl.forEach((item)=>{arrayClass.push(classes[item].notLoaded)})
+				reject(arrayClass);}
+			imgWall.onload=()=>{
+				resolve(url);}
+			imgWall.src=url;
+		});}
+		return Promise.all(url.map(promise));
+	}
+}
+let field=new Field();
+field.build();
+Field.prototype.getField=field.fieldBuf;
+
+class Roadside extends Field{
+	constructor(options){
+		super();
+		Object.assign(this,options);
+		this._field=super.getField();
+		if(this.constructor==Roadside){
+			if(this._side=='left'){
+				this.left=this._field.clientLeft;}
+			else{
+				this.left= this.size.width-this.kolWidth-this._field.clientLeft;
+			}
+		}
+	}
+	get build(){
+		this.height=this.kolHeight;
+		this.width=this.kolWidth;
+		this.top=this.size.top+this._field.clientTop;
+		let div,i=0;
+		let majorDiv=[];
+		let self=this;
+		return {
+			create:function(){
+				while(i<self._array.length){
+					div=document.createElement('div');
+					div.classList.add('majorRoadside');
+					div.style.left=self.left+'px';
+					div.style.top=self.top+'px';
+					div.style.height=self.height+'px';
+					div.style.width=self.width+'px';
+					self._field.appendChild(div);
+					majorDiv.push(div);
+					i++;
+					self.top=div.getBoundingClientRect().bottom-div.clientTop;
+				}
+				return this;
+			},
+			drew(){
+				for(var i=0;i<majorDiv.length;i++){
+					if(self._array[i]){
+						majorDiv[i].classList.add('outline1px');
+						self.net?majorDiv[i].style.content=`url(${self._class})` : majorDiv[i].classList.add(self._class);
+					}else{
+						majorDiv[i].classList.remove('outline1px');
+						self.net?majorDiv[i].style.content=`` : majorDiv[i].classList.remove(self._class);
+					}
+				}
+				return this;
+			}
+		}
+	}
+}
+
+class Car extends Roadside{
+	constructor(options){
+		super(options);
+		this.kolBlockWidth=3;
+		this.kolBlockHeight=5;
+		this.width=this.kolWidth*this.kolBlockWidth;//	width car
+		this.height=this.kolHeight*this.kolBlockHeight; // height car
+		this.top=this.size.bottom-this._field.clientTop-this.height;
+		this.locationOnTheRight=this.size.width/2;//location
+		this.locationOnTheLeft=this.size.width/2-this.width-this._field.clientLeft+(this.net?this._field.clientLeft:0);//location
+	}
+	relocation(method){
+		let f=(e)=>{//movements carLeft
+			switch(e.keyCode){
+				case 37:
+					if(this._side=='left'){break;}else{
+						this._side='left';
+						this._location();
+						this._left();
+					}
+				break;
+				case 39:
+					if(this._side=='right'){break;} else{
+						this._side='right';
+						this._location();
+						this._left();
+					}
+				break;
+			}
+		}
+		if(!this.hasOwnProperty('_event')){this._event=f.bind(this);}
+		document[method]('keydown',this._event);
+	}
+	_location(){ //determine the side
+		if(this._side=='left'){
+			this.left=this.locationOnTheLeft;
+		}else{
+			this.left=this.locationOnTheRight;
+		}
+	}
+	build(){
+		let drew=()=>{
+			this._array=[];
+			for(let i=0;i<this.kolBlockHeight;i++){
+				let array=[];
+				for(let j=0;j<this.kolBlockWidth;j++){
+					let d=document.createElement('div');
+					d.style.width=this.kolWidth+'px';
+					d.style.height=this.kolHeight+'px';
+					d.style.cssFloat='left'
+					div.appendChild(d);
+					array.push(d);
+				}
+				this._array.push(array);
+			}
+			const drewCar=[[0,1,0],[1,1,1],[0,1,0],[0,1,0],[1,0,1]];
+			drewCar.forEach((item,i)=>{item.forEach((elem,j)=>{elem?this._array[i][j].classList.add(this._class):null});});
+		}
+		let div =document.createElement('div');
+		div.style.width=this.width+'px';
+		div.style.height=this.height+'px';
+		this._location();
+		this._left=()=>{
+			div.style.left=this.left+'px';
+			div.style.top=this.top+'px';
+		}
+		this._left();
+		div.style.top=this.top+'px';
+		div.classList.add('majorCar');
+		this._field.appendChild(div);
+		this.net?div.style.content=`url(${this._class})`:drew();
+	}
+}
+class Rival extends Car{
+	constructor(options){
+		super(options);
+		this.using=false;//at the moment the car is moving or not
+		this.unit=null;//the time through which the car will start moving
+		this.top=this.size.top-this.height;//+this._field.clientTop;
+	}
+	move(){ //car moves
+		this._top();
+		if(this.top>this.size.bottom-this._field.clientTop){
+			this.top=this.size.top-this.height;
+			this.using=false;
+			this.unit=null;
+		}
+	}
+	_top(){
+		this.top+=this.kolHeight+this._field.clientTop/this._kolHeight;
+	}
+	static create(option){
+		let array=[];
+		for(let i=0;i<2;i++){
+			array.push(new Rival(option));
+			array[i].build();
+		}
+		return array;
+	}
+	static random(min,max){
+		let rand = min + Math.random() * (max + 1 - min);
+		rand = Math.floor(rand);
+		return rand;	
+	}
+	static go(arr){
+		function distance(car){
+			for(let i=0;i<arr.length;i++){
+				if(car!=arr[i] && (car.top==arr[i].top || arr[i].top-arr[i].size.top-arr[i]._field.clientTop>=arr[i].kolHeight*6)){
+					return true;}
+			}
+		}
+		arr.forEach((item)=>{
+			if(item.using==false){;
+				if(item.unit==0){//it's time to go
+					if(distance(item)){
+						item.using=true;
+						item.move();
+						item._left();
+						item.unit=null;
+						item.using=true;
+					}
+				}else{
+					item.unit--;
+				}
+			}else{//the car is already moving
+				item.move();
+				item._left();
+			}
+		});
+	}
+	static on(arr,unit){
+		const side=['left','right'];
+		arr.forEach((item)=>{
+			if(!item.using && item.unit==null){//if carr off
+				item.unit=this.random(0,unit);
+				let rand=Rival.random(0,1);
+				item._side=side[rand];
+				item._location();
+				item._left();
+			}
+		});
+	}
+	static check(arr,car){
+		for(let i=0;i<arr.length;i++){
+			let item=arr[i];
+			if(item.using && item._side==car._side){ //if in motion and on one side
+				if(car.top-Math.abs(item.top)<car.height){
+					return true;
+				}
+			}
+		}
+	}
+}
+let roadside='https://konspekta.net/megapredmetru/baza2/408602570006.files/image012.jpg';
+let car='https://cdn.clipart.email/d0407092cd090e52d1667264e3665366_car-birds-eye-view-clip-art-top-view-png-download-11472400-_900-1900.jpeg';
+let carMain='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTPTkcqAlUWPa0TOd41duS9ZVv9DkXsRdPDsQ&usqp=CAU';
+const classes={
+	[roadside]:{notLoaded:'roadsideNotLoaded'},
+	[car]:{notLoaded:'majorCarNotLoaded'},
+	[carMain]:{notLoaded:'majorCarNotLoaded'}
+};
+const array=[1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0];//roadsideLeft
+const array2=[1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0];//roadsideRight
+let roadsideLeft,roadsideRight;
+Field.loadImage(classes)
+.then(
+	(_classArray)=>{next(_classArray,true);},
+	(_class)=>{next(_class,false);}
+);
+let next=(_classArray,net)=>{
+	roadsideLeft=new Roadside({_array:array,_side:'left',_class:_classArray[0],net:net});//left
+	roadsideRight=new Roadside({_array:array2,_side:'right',_class:_classArray[0],net:net});
+	let buildLeft=roadsideLeft.build;buildLeft.create().drew();
+	let buildRight=roadsideRight.build;buildRight.create().drew();
+	let carLeft=new Car({_side:'left',_class:_classArray[1],net:net});
+	carLeft.build();
+	carLeft.relocation('addEventListener');	
+	let rivals=Rival.create({_side:'left',_class:_classArray[2],net:net});
+	field.timer();
+	let k=0;//counter
+	let t=400;//time
+	let step=50;//time step
+	let arr=roadsideLeft._array;
+	let arr2=roadsideRight._array;
+	let unit=10;
+	setTimeout(function f(){
+		let buf=arr[arr.length-1];
+		let buf2=arr2[arr2.length-1];
+		for(let i=arr.length-1;i>=0;i--){
+			if(arr[i]!=arr[i-1]){
+				arr[i]=arr[i-1];
+			}
+			if(arr2[i]!=arr2[i-1]){
+				arr2[i]=arr2[i-1];
+			}
+		}
+		arr[0]=buf;
+		arr2[0]=buf2;
+		if(Rival.check(rivals,carLeft)){
+			carLeft.gameOver('GAME OVER');
+			clearTimeout(field.timeoutID);
+			carLeft.relocation('removeEventListener');
+			return;
+		}
+		buildLeft.drew();buildRight.drew();
+		Rival.on(rivals,unit);
+		Rival.go(rivals);
+		if(k==step){
+			k=0;
+			
+			if(t<=200){
+				if(t<=75){t=t-t/10;}else{t=t-step/2;unit--;}
+			}else{t-=step;unit--;}	 	
+		}
+		if(t<0){t=0;}
+		++k;	
+		setTimeout(f,t);
+	},1000);
+}
+</script> 
+</body>
+</html>
+

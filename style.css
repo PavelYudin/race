@@ -1,0 +1,70 @@
+	body{
+		margin:0;
+		padding:0;
+		background-color:white;
+		overflow: hidden;
+	}
+	.mainDiv{
+		width:25%;
+		height:100%;
+		position:absolute;
+		background-color:red;
+		margin-Left:35%;
+	}
+	.fieldTop{
+		z-index:999;
+		position:relative;
+		background-color:white;
+		height:10%;
+		width:100%;
+		text-align:center;
+	}
+	.fieldTop span{
+		font-size:300%;
+		padding: 3em 0;
+	}
+	.field{
+		border:4px solid black;
+		height: 85%;
+		width:100%;
+		position: static;
+		background-color:white;
+		z-index:1000;
+	}
+	.gameOver{
+		position:relative;
+		width:inherit;
+		height:0;
+		background-color:red;
+		margin-top:40%;		
+		text-align:center;
+	}
+	.gameOver span{
+		font-size:600%;
+		padding: 3em 0;
+	}
+	.fieldBottom{
+		z-index:999;
+		position:relative;
+		background-color:white;
+		height:5%;
+		width:100%;
+		border-right:15px solid white;	
+	}
+	.majorRoadside{
+		position:absolute;
+	}
+	.outline1px{
+		outline: 1px solid black;
+	}
+	.roadsideNotLoaded{
+		background-color:red;
+	}
+	.majorCar{
+		z-index:0;
+		position:absolute;
+	}
+	.majorCarNotLoaded{
+		background-color:green;
+		outline: 1px solid black;
+	}
